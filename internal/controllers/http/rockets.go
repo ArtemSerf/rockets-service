@@ -43,7 +43,7 @@ func listRockets(service *rockets.Service) http.HandlerFunc {
 			return
 		}
 
-		resp := make([]rocketResponse, 0, len(list))
+		resp := make([]rocketJSON, 0, len(list))
 		for _, rocket := range list {
 			resp = append(resp, toRocketResponse(rocket))
 		}

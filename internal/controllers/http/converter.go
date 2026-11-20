@@ -60,7 +60,7 @@ func (m message) toEvent() (models.Event, error) {
 	}, nil
 }
 
-type rocketResponse struct {
+type rocketJSON struct {
 	Channel         string     `json:"channel"`
 	Status          string     `json:"status"`
 	Type            string     `json:"type,omitempty"`
@@ -73,8 +73,8 @@ type rocketResponse struct {
 	HasGap          bool       `json:"hasGap"`
 }
 
-func toRocketResponse(r models.Rocket) rocketResponse {
-	resp := rocketResponse{
+func toRocketResponse(r models.Rocket) rocketJSON {
+	resp := rocketJSON{
 		Channel:         r.Channel,
 		Status:          string(r.Status),
 		Type:            r.Type,

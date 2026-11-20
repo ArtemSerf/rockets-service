@@ -15,38 +15,38 @@ func validateEvent(e models.Event) error {
 	blank := func(s string) bool { return strings.TrimSpace(s) == "" }
 
 	if blank(e.Channel) {
-		return invalid("channel is required")
+		return invalid("metadata.channel must not be empty")
 	}
 	if e.Number < 1 {
-		return invalid("message number must be positive")
+		return invalid("metadata.messageNumber must be 1 or greater")
 	}
 	if e.Time.IsZero() {
-		return invalid("message time is required")
+		return invalid("metadata.messageTime is missing")
 	}
 
 	switch p := e.Payload.(type) {
 	case models.Launched:
 		if blank(p.RocketType) || blank(p.Mission) || p.LaunchSpeed < 0 {
-			return invalid("launch requires type, mission and non-negative speed")
+			return invalid("launch needs a type, a mission and launchSpeed >= 0")
 		}
 	case models.SpeedIncreased:
 		if p.By < 0 {
-			return invalid("speed change must be non-negative")
+			return invalid("message.by must not be negative")
 		}
 	case models.SpeedDecreased:
 		if p.By < 0 {
-			return invalid("speed change must be non-negative")
+			return invalid("message.by must not be negative")
 		}
 	case models.Exploded:
 		if blank(p.Reason) {
-			return invalid("explosion reason is required")
+			return invalid("message.reason must not be empty")
 		}
 	case models.MissionChanged:
 		if blank(p.NewMission) {
-			return invalid("new mission is required")
+			return invalid("message.newMission must not be empty")
 		}
 	default:
-		return invalid("unsupported payload")
+		return invalid("unknown event payload")
 	}
 	return nil
 }
@@ -56,13 +56,13 @@ func validateListOptions(o models.ListOptions) error {
 
 	switch {
 	case !sortFields[o.Sort]:
-		return invalid("sort must be one of channel, type, speed, mission")
+		return invalid("sort accepts channel, type, speed or mission")
 	case o.Order != "asc" && o.Order != "desc":
-		return invalid("order must be asc or desc")
+		return invalid("order accepts asc or desc")
 	case o.Limit < 1 || o.Limit > 1000:
-		return invalid("limit must be between 1 and 1000")
+		return invalid("limit accepts 1 to 1000")
 	case o.Offset < 0:
-		return invalid("offset must be non-negative")
+		return invalid("offset must not be negative")
 	}
 	return nil
 }
