@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS rocket_events;
+DROP TABLE IF EXISTS rockets;
