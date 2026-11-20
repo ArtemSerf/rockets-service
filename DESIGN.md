@@ -54,23 +54,28 @@ see exactly what happened to any rocket.
 
 Saving a message and applying it are two separate steps.
 
-1. **Save.** In a short transaction: lock the rocket, insert the event with
-   `ON CONFLICT DO NOTHING` (no row inserted means duplicate), commit. The event is now safe.
+1. **Save.** Insert the rocket row if it's new and the event, both with `ON CONFLICT DO NOTHING`.
+   No transaction or lock is needed here: the primary key alone guarantees a duplicate is never
+   stored twice (no row inserted means duplicate). The event is now safe.
 2. **Apply.** In batches of up to 500, each in its own transaction: lock the rocket, take the
    pending events right after `last_processed_number`, apply them in order until the first gap,
    update their statuses with one query, save the rocket, commit. Repeat while batches are full.
 3. Answer 200. If applying fails or runs out of time, it is logged; finished batches stay
    committed and the next message for that rocket picks up where it stopped.
 
-The lock is one statement: `INSERT ... ON CONFLICT (channel) DO UPDATE ... RETURNING ...`. It
-creates the rocket if needed, locks it until commit and returns its state in one round trip.
+Only applying needs the lock, because it reads and changes the rocket state. The lock is one
+statement: `INSERT ... ON CONFLICT (channel) DO UPDATE ... RETURNING ...`, which locks the row
+until commit and returns its state in one round trip. Saving never waits for it, so new messages
+are not slowed down by a rocket that is busy applying a backlog. Nothing gets lost in between:
+every request applies pending events after its own insert, so an event saved while another request
+holds the lock is picked up as soon as the lock is free.
 
 **Why two steps.** If saving and applying shared one transaction, a long gap would break the
 rocket: the message closing it would have to apply the whole backlog, could hit the request
 timeout, get rolled back and resent, and fail the same way again. With the event saved first, a
 slow apply never causes a retry, and progress is kept batch by batch.
 
-**Concurrency.** The row lock means one rocket is processed by one request at a time, even with
+**Concurrency.** The row lock means one rocket is applied by one request at a time, even with
 several service instances. Different rockets run in parallel. I didn't add an in-memory mutex: it
 would only work inside one process and the database already guarantees this. Small batches keep
 each lock short.

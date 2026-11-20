@@ -2,6 +2,7 @@ package rockets
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -58,6 +59,22 @@ func NewRepository(ctx context.Context, dsn string) (*Repository, error) {
 
 func (r *Repository) Ping(ctx context.Context) error { return r.pool.Ping(ctx) }
 func (r *Repository) Close()                         { r.pool.Close() }
+
+func (r *Repository) InsertEvent(ctx context.Context, e models.Event, receivedAt time.Time) (bool, error) {
+	payload, err := json.Marshal(e.Payload)
+	if err != nil {
+		return false, err
+	}
+	if _, err := r.pool.Exec(ctx, `INSERT INTO rockets (channel) VALUES ($1) ON CONFLICT DO NOTHING`, e.Channel); err != nil {
+		return false, err
+	}
+	tag, err := r.pool.Exec(ctx, `
+		INSERT INTO rocket_events (channel, message_number, message_type, message_time, payload, received_at)
+		VALUES ($1, $2, $3, $4, $5::jsonb, $6)
+		ON CONFLICT DO NOTHING`,
+		e.Channel, e.Number, string(e.Payload.Type()), e.Time, string(payload), receivedAt)
+	return tag.RowsAffected() == 1, err
+}
 
 func (r *Repository) WithRocketLock(ctx context.Context, channel string, fn func(*Tx, models.Rocket) error) error {
 	tx, err := r.pool.Begin(ctx)

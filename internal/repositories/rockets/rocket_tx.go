@@ -2,8 +2,6 @@ package rockets
 
 import (
 	"context"
-	"encoding/json"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -13,19 +11,6 @@ import (
 type Tx struct {
 	tx      pgx.Tx
 	channel string
-}
-
-func (t *Tx) InsertEvent(ctx context.Context, e models.Event, receivedAt time.Time) (bool, error) {
-	payload, err := json.Marshal(e.Payload)
-	if err != nil {
-		return false, err
-	}
-	tag, err := t.tx.Exec(ctx, `
-		INSERT INTO rocket_events (channel, message_number, message_type, message_time, payload, received_at)
-		VALUES ($1, $2, $3, $4, $5::jsonb, $6)
-		ON CONFLICT DO NOTHING`,
-		e.Channel, e.Number, string(e.Payload.Type()), e.Time, string(payload), receivedAt)
-	return tag.RowsAffected() == 1, err
 }
 
 func (t *Tx) PendingEvents(ctx context.Context, after int64, limit int) ([]models.Event, error) {

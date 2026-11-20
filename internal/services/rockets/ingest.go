@@ -16,11 +16,7 @@ func (s *Service) Ingest(ctx context.Context, e models.Event) (duplicate bool, e
 		return false, err
 	}
 
-	err = s.repository.WithRocketLock(ctx, e.Channel, func(tx *repository.Tx, _ models.Rocket) error {
-		inserted, err := tx.InsertEvent(ctx, e, s.now().UTC())
-		duplicate = !inserted
-		return err
-	})
+	inserted, err := s.repository.InsertEvent(ctx, e, s.now().UTC())
 	if err != nil {
 		return false, fmt.Errorf("store %s #%d: %w", e.Channel, e.Number, err)
 	}
@@ -28,7 +24,7 @@ func (s *Service) Ingest(ctx context.Context, e models.Event) (duplicate bool, e
 	if err := s.processPending(ctx, e.Channel); err != nil {
 		log.Error(ctx, err, "process pending events", "channel", e.Channel)
 	}
-	return duplicate, nil
+	return !inserted, nil
 }
 
 func (s *Service) processPending(ctx context.Context, channel string) error {
